@@ -1,4 +1,5 @@
-from threading import Thread, Lock
+from threading import Lock
+from concurrent.futures import ThreadPoolExecutor
 from itertools import count
 from abc import ABCMeta, abstractmethod
 
@@ -51,29 +52,26 @@ class FastSharedCounter(ThreadSafeCounter):
         return value
 
 
-# counter = SharedCounter()
-counter = FastSharedCounter()
-
-
-def function(arg):
-    for _ in range(arg):
+def function(counter, num_of_iterations):
+    for i in range(num_of_iterations):
         # a += 1  <- The main problem here that this operation is done in 3 steps: read-process-write.
         #            If a usual integer value, any other process may invade these steps.
         #            In this case, we should use a counter.
-        #            But if we want to have all operators ("+=, -=, *=, etc.), we can make something like AtomicInteger.
+        #            But if we want to have all operators (+=, -=, *=, etc.), we can make something like AtomicInteger.
         #            But it's unusable in this case (lots of operations) because it will work very slow.
         counter.increment()
 
 
 def main():
-    threads = []
-    for i in range(5):
-        thread = Thread(target=function, args=(1000000,))
-        thread.start()
-        threads.append(thread)
+    # counter = SharedCounter()
+    counter = FastSharedCounter()
 
-    [t.join() for t in threads]
-    print("----------------------", counter.value)  # ???
+    with ThreadPoolExecutor() as executor:
+        for i in range(5):
+            executor.submit(function, counter, 1000000)
+
+    print("----------------------", counter.value)
 
 
-main()
+if __name__ == "__main__":
+    main()
